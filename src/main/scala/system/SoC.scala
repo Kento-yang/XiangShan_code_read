@@ -21,7 +21,7 @@ import chisel3._
 import chisel3.util._
 import device.{DebugModule, TLPMA, TLPMAIO}
 import freechips.rocketchip.devices.tilelink.{CLINT, CLINTParams, DevNullParams, PLICParams, TLError, TLPLIC}
-import freechips.rocketchip.diplomacy.{AddressSet, IdRange, InModuleBody, LazyModule, LazyModuleImp, MemoryDevice, RegionType, SimpleDevice, TransferSizes}
+import freechips.rocketchip.diplomacy.{AddressSet, IdRange, InModuleBody, LazyModule, LazyModuleImp, MemoryDevice, RegionType, SimpleDevice, TransferSizes,BufferParams}
 import freechips.rocketchip.interrupts.{IntSourceNode, IntSourcePortSimple}
 import freechips.rocketchip.regmapper.{RegField, RegFieldAccessType, RegFieldDesc, RegFieldGroup}
 import utils.{BinaryArbiter, TLEdgeBuffer}
@@ -147,6 +147,12 @@ trait HaveAXI4MemPort {
     )
   ))
 
+  val buffers = Seq.fill(45){ TLBuffer(BufferParams(1, false, true)) }
+  (buffers.init zip buffers.tail) foreach { case (curr, succ) =>
+    curr := succ
+  }
+  println(s"add dummy delay ${buffers.size * 2}")
+
   val mem_xbar = TLXbar()
   mem_xbar :=*
     TLXbar() :=*
@@ -167,6 +173,9 @@ trait HaveAXI4MemPort {
     AXI4UserYanker() :=
     AXI4Deinterleaver(L3BlockSize) :=
     TLToAXI4() :=
+    buffers.head
+
+  buffers.last :=
     TLSourceShrinker(64) :=
     TLWidthWidget(L3OuterBusWidth / 8) :=
     TLBuffer.chainNode(2) :=
